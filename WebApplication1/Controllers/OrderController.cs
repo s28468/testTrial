@@ -54,16 +54,14 @@ namespace WebApplication1.Controllers
 
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<OrderDto>> GetOrder(int id, CancellationToken cancellationToken)
+        public async Task<ActionResult<OrderDto>> GetOrder(int qw, int id, CancellationToken cancellationToken)
         {
             _logger.LogInformation($"Fetching order with ID {id}");
 
             var order = await _context.Orders
-                .Include(o => o.Customer)
                 .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product.Supplier)
+                .ThenInclude(p => p.Supplier)
                 .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
 
             if (order == null)
@@ -72,12 +70,21 @@ namespace WebApplication1.Controllers
                 return NotFound();
             }
 
+            var customer = await _context.Customers
+                .FirstOrDefaultAsync(c => c.Id == order.CustomerId, cancellationToken);
+
+            if (customer == null)
+            {
+                _logger.LogWarning($"Customer with ID {order.CustomerId} not found");
+                return NotFound();
+            }
+
             var orderDto = new OrderDto
             {
                 OrderDate = order.OrderDate,
                 TotalAmount = order.TotalAmount,
-                FirstName = order.Customer.FirstName,
-                LastName = order.Customer.LastName,
+                FirstName = customer.FirstName,
+                LastName = customer.LastName,
                 Items = order.OrderItems.Select(oi => new OrderItemDto
                 {
                     ProductName = oi.Product.ProductName,
@@ -89,6 +96,7 @@ namespace WebApplication1.Controllers
 
             return Ok(orderDto);
         }
+
 
 
 
