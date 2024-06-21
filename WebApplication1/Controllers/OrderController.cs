@@ -23,19 +23,22 @@ namespace WebApplication1.Controllers
         public async Task<ActionResult<IEnumerable<OrderDto>>> GetOrders(CancellationToken cancellationToken)
         {
             var orders = await _context.Orders
-                .Include(o => o.Customer)
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product.Supplier)
+                .Include(o => o.OrderItems) 
+                .ThenInclude(oi => oi.Product) 
+                .ThenInclude(p => p.Supplier) 
+                .ToListAsync(cancellationToken);
+
+            var customerIds = orders.Select(o => o.CustomerId).Distinct().ToList();
+            var customers = await _context.Customers
+                .Where(c => customerIds.Contains(c.Id))
                 .ToListAsync(cancellationToken);
 
             var orderDtos = orders.Select(o => new OrderDto
             {
                 OrderDate = o.OrderDate,
                 TotalAmount = o.TotalAmount,
-                FirstName = o.Customer.FirstName,
-                LastName = o.Customer.LastName,
+                FirstName = customers.FirstOrDefault(c => c.Id == o.CustomerId)?.FirstName,
+                LastName = customers.FirstOrDefault(c => c.Id == o.CustomerId)?.LastName,
                 Items = o.OrderItems.Select(oi => new OrderItemDto
                 {
                     ProductName = oi.Product.ProductName,
@@ -46,6 +49,7 @@ namespace WebApplication1.Controllers
             }).ToList();
 
             return Ok(orderDtos);
+
         }
 
 
